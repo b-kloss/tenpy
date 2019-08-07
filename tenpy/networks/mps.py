@@ -307,6 +307,104 @@ class MPS:
         return cls.from_Bflat(sites, Bs, SVs, bc, dtype, False, form, legL)
 
     @classmethod
+    def from_Bflat_inherit(cls,
+                   sites,
+                   Bflat,
+                   SVs=None,
+                   bc='finite',
+                   dtype=None,
+                   permute=True,
+                   form='B',
+                   legL=None,
+                   parentpsi=None):
+        """Construct a matrix product state from a set of numpy arrays `Bflat` and singular vals.
+
+        Parameters
+        ----------
+        sites : list of :class:`~tenpy.networks.site.Site`
+            The sites defining the local Hilbert space.
+        Bflat : iterable of numpy ndarrays
+            The matrix defining the MPS on each site, with legs ``'p', 'vL', 'vR'``
+            (physical, virtual left/right).
+        SVs : list of 1D array | ``None``
+            The singular values on *each* bond. Should always have length `L+1`.
+            By default (``None``), set all singular values to the same value.
+            Entries out of :attr:`nontrivial_bonds` are ignored.
+        bc : {'infinite', 'finite', 'segmemt'}
+            MPS boundary conditions. See docstring of :class:`MPS`.
+        dtype : type or string
+            The data type of the array entries. Defaults to the common dtype of `Bflat`.
+        permute : bool
+            The :class:`~tenpy.networks.Site` might permute the local basis states if charge
+            conservation gets enabled.
+            If `permute` is True (default), we permute the given `Bflat` locally according to
+            each site's :attr:`~tenpy.networks.Site.perm`.
+            The `p_state` argument should then always be given as if `conserve=None` in the Site.
+        form : (list of) {``'B' | 'A' | 'C' | 'G' | None`` | tuple(float, float)}
+            Defines the canonical form of `Bflat`. See module doc-string.
+            A single choice holds for all of the entries.
+        leg_L : LegCharge | ``None``
+            Leg charges at bond 0, which are purely conventional.
+            If ``None``, use trivial charges.
+
+        Returns
+        -------
+        mps : :class:`MPS`
+            An MPS with the matrices `Bflat` converted to npc arrays.
+        """
+        sites = list(sites)
+        L = len(sites)
+        Bflat = list(Bflat)
+        if len(Bflat) != L:
+            raise ValueError("Length of Bflat does not match number of sites.")
+        ci = sites[0].leg.chinfo
+        if legL is 'infer':
+            infer_legL=True
+        else:
+            infer_legL=False
+        
+        if legL is None:
+            legL = npc.LegCharge.from_qflat(ci, [ci.make_valid(None)] * Bflat[0].shape[1])
+            legL = legL.bunch()[1]
+        elif legL=='infer':
+            legL = parentpsi.get_B(0,'B').get_leg('vL') 
+        if SVs is None:
+            SVs = [np.ones(B.shape[1]) / np.sqrt(B.shape[1]) for B in Bflat]
+            SVs.append(np.ones(Bflat[-1].shape[2]) / np.sqrt(Bflat[-1].shape[2]))
+        Bs = []
+        if dtype is None:
+            dtype = np.dtype(np.common_type(*Bflat))
+        for i, site in enumerate(sites):
+            B = np.array(Bflat[i], dtype)
+            if permute:
+                B = B[site.perm, :, :]
+            # calculate the LegCharge of the right leg
+            if infer_legL==False:
+                legs = [site.leg, legL, None]  # other legs are known
+                legs = npc.detect_legcharge(B, ci, legs, None, qconj=-1)
+            else:
+                legs = [site.leg, parentpsi.get_B(i,'B').get_leg('vL'), parentpsi.get_B(i,'B').get_leg('vR')]
+            B = npc.Array.from_ndarray(B, legs, dtype)
+            B.iset_leg_labels(['p', 'vL', 'vR'])
+            Bs.append(B)
+            if infer_legL==False:
+                legL = legs[-1].conj()# prepare for next `i`
+            else:
+                legL = parentpsi.get_B((i+1)//2,'B').get_leg('vL')
+            #print(i,'vl',B.get_leg('vL').charges)
+            #print(i,'vr',B.get_leg('vR').charges)
+        #print('legL',legL)
+        if bc == 'infinite':
+            # for an iMPS, the last leg has to match the first one.
+            # so we need to gauge `qtotal` of the last `B` such that the right leg matches.
+            ##TODO: check whether we can enable this again?
+            if infer_legL==False:
+                chdiff = Bs[-1].get_leg('vR').charges[0] - Bs[0].get_leg('vL').charges[0]
+                Bs[-1] = Bs[-1].gauge_total_charge('vR', ci.make_valid(chdiff))
+        return cls(sites, Bs, SVs, form=form, bc=bc)
+
+
+    @classmethod
     def from_Bflat(cls,
                    sites,
                    Bflat,
