@@ -1099,8 +1099,9 @@ class BosonSite(Site):
             raise ValueError("invalid `conserve`: " + repr(conserve))
         dim = Nmax + 1
         states = [str(n) for n in range(0, dim)]
-        if dim < 2:
-            raise ValueError("local dimension should be larger than 1....")
+        #if dim < 2:
+        #    raise ValueError("local dimension should be larger than 1....")
+        ##disable this for merged fermion-boson sites, i.e. to incorporate Fermi-Hubbard limit within Holstein model
         B = np.zeros([dim, dim], dtype=np.float)  # destruction/annihilation operator
         for n in range(1, dim):
             B[n - 1, n] = np.sqrt(n)
