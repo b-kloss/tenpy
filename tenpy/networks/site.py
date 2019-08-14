@@ -1142,3 +1142,178 @@ class BosonSite(Site):
         return "BosonSite({N:d}, {c!r}, {f:f})".format(N=self.Nmax,
                                                        c=self.conserve,
                                                        f=self.filling)
+
+class BosonSiteParity(Site):
+    r"""Create a :class:`Site` for up to `2*Nmax` bosons, but only even or odd ones (for Hamiltonians that conserve the 'parity' of bosons.
+
+    Local states are ``vac, 2, 4, ... , Nc -2, Nc`` for even site and corresponding odd ones for odd states.
+    (Exception: for parity conservation, we sort as ``vac, 2, 4, ..., 1, 3, 5, ...``.)
+
+    ==============  ========================================
+    operator        description
+    ==============  ========================================
+    ``Id, JW``      Identity :math:`\mathbb{1}`
+    ``B``           Annihilation operator :math:`b`
+    ``Bd``          Creation operator :math:`b^\dagger`
+    ``N``           Number operator :math:`n= b^\dagger b`
+    ``NN``          :math:`n^2`
+    ``dN``          :math:`\delta n := n - filling`
+    ``dNdN``        :math:`(\delta n)^2`
+    ``P``           Parity :math:`Id - 2 (n \mod 2)`.
+    ==============  ========================================
+
+    ============== ====  ==================================
+    `conserve`     qmod  *excluded* onsite operators
+    ============== ====  ==================================
+    ``'N'``        [1]   --
+    ``'parity'``   [2]   --
+    ``None``       []    --
+    ============== ====  ==================================
+
+    Parameters
+    ----------
+    Nmax : int
+        Cutoff defining the maximum number of bosons per site.
+        The default ``Nmax=1`` describes hard-core bosons.
+    conserve : str
+        Defines what is conserved, see table above.
+    filling : float
+        Average filling. Used to define ``dN``.
+
+    Attributes
+    ----------
+    conserve : str
+        Defines what is conserved, see table above.
+    filling : float
+        Average filling. Used to define ``dN``.
+    """
+
+    def __init__(self, Nmax=1, conserve='N', filling=0.,even=True,odd=True):
+        if conserve not in ['N', 'parity', None]:
+            raise ValueError("invalid `conserve`: " + repr(conserve))
+        dim = Nmax + 1
+        if even==True and odd==False:
+            states = [str(2*n) for n in range(0, dim)] ##we might need to change this to simple counting up from zero later for compatibility between sectors
+            B = np.zeros([2*dim, 2*dim], dtype=np.float)  # destruction/annihilation operator
+            for n in range(1, 2*dim):
+                B[n - 1, n] = np.sqrt(n)
+            Bd = np.transpose(B)
+            Bdsquared=Bd.dot(Bd)
+            Bsquared=B.dot(B)
+            
+            Ndiag = np.arange(dim*2, dtype=np.float)[::2]
+            N = np.diag(Ndiag)
+            NN = np.diag(Ndiag**2)
+            dN = np.diag(Ndiag - filling)   ###FIXME filling here doesn't make a whole lot of sense
+            dNdN = np.diag((Ndiag - filling)**2)
+            P = np.diag(1. - 2. * np.mod(Ndiag, 2))
+            ops = dict(Bsquared=Bsquared[::2,::2], Bdsquared=Bdsquared[::2,::2], N=N, NN=NN, dN=dN, dNdN=dNdN, P=P)
+            if conserve == 'N':
+                chinfo = npc.ChargeInfo([1], ['N'])
+                leg = npc.LegCharge.from_qflat(chinfo, 2*range(dim))
+            elif conserve == 'parity':
+                chinfo = npc.ChargeInfo([2], ['parity'])
+                leg_unsorted = npc.LegCharge.from_qflat(chinfo, [i % 2 for i in 2*range(dim)])
+                # sort by charges
+                perm_qind, leg = leg_unsorted.sort()
+                perm_flat = leg_unsorted.perm_flat_from_perm_qind(perm_qind)
+                self.perm = perm_flat
+                # permute operators accordingly
+                for opname in ops:
+                    ops[opname] = ops[opname][np.ix_(perm_flat, perm_flat)]
+                # and the states
+                states = [states[i] for i in perm_flat]
+            else:
+                leg = npc.LegCharge.from_trivial(dim)
+            self.Nmax = Nmax
+            self.conserve = conserve
+            self.filling = filling
+            Site.__init__(self, leg, states, **ops)
+        elif even==False and odd==True:
+            states = [str((2*n)+1) for n in range(0, dim)]
+            B = np.zeros([2*dim, 2*dim], dtype=np.float)  # destruction/annihilation operator
+            for n in range(1, 2*dim):
+                B[n - 1, n] = np.sqrt(n)
+            Bd = np.transpose(B)
+            Bdsquared=Bd.dot(Bd)
+            Bsquared=B.dot(B)
+            Ndiag = np.arange(1,dim*2+1, dtype=np.float)[::2]
+            N = np.diag(Ndiag)
+            NN = np.diag(Ndiag**2)
+            dN = np.diag(Ndiag - filling)   ###FIXME filling here doesn't make a whole lot of sense
+            dNdN = np.diag((Ndiag - filling)**2)
+            P = np.diag(1. - 2. * np.mod(Ndiag, 2))
+            ops = dict(Bsquared=Bsquared[1::2,1::2], Bdsquared=Bdsquared[1::2,1::2], N=N, NN=NN, dN=dN, dNdN=dNdN, P=P)
+            if conserve == 'N':
+                chinfo = npc.ChargeInfo([1], ['N'])
+                leg = npc.LegCharge.from_qflat(chinfo, 2*range(dim)+1)
+            elif conserve == 'parity':
+                chinfo = npc.ChargeInfo([2], ['parity'])
+                leg_unsorted = npc.LegCharge.from_qflat(chinfo, [i % 2 for i in 2*range(dim) + 1 ])
+                # sort by charges
+                perm_qind, leg = leg_unsorted.sort()
+                perm_flat = leg_unsorted.perm_flat_from_perm_qind(perm_qind)
+                self.perm = perm_flat
+                # permute operators accordingly
+                for opname in ops:
+                    ops[opname] = ops[opname][np.ix_(perm_flat, perm_flat)]
+                # and the states
+                states = [states[i] for i in perm_flat]
+            else:
+                leg = npc.LegCharge.from_trivial(dim)
+            self.Nmax = Nmax
+            self.conserve = conserve
+            self.filling = filling
+            Site.__init__(self, leg, states, **ops)
+        
+            
+        elif even==True and odd==True:
+            states = [str(n) for n in range(0, dim)]
+            
+            
+            #if dim < 2:
+            #    raise ValueError("local dimension should be larger than 1....")
+            ##disable this for merged fermion-boson sites, i.e. to incorporate Fermi-Hubbard limit within Holstein model
+            B = np.zeros([dim, dim], dtype=np.float)  # destruction/annihilation operator
+            
+            for n in range(1, dim):
+                B[n - 1, n] = np.sqrt(n)
+            Bd = np.transpose(B)  # .conj() wouldn't do anything
+            Bdsquared=Bd.dot(Bd)
+            Bsquared=B.dot(B)
+            # Note: np.dot(Bd, B) has numerical roundoff errors of eps~=4.4e-16.
+            Ndiag = np.arange(dim, dtype=np.float)
+            N = np.diag(Ndiag)
+            NN = np.diag(Ndiag**2)
+            dN = np.diag(Ndiag - filling)
+            dNdN = np.diag((Ndiag - filling)**2)
+            P = np.diag(1. - 2. * np.mod(Ndiag, 2))
+            ops = dict(B=B, Bd=Bd,Bsquared=Bsquared,Bdsquared=Bdsquared, N=N, NN=NN, dN=dN, dNdN=dNdN, P=P)
+            if conserve == 'N':
+                chinfo = npc.ChargeInfo([1], ['N'])
+                leg = npc.LegCharge.from_qflat(chinfo, range(dim))
+            elif conserve == 'parity':
+                chinfo = npc.ChargeInfo([2], ['parity'])
+                leg_unsorted = npc.LegCharge.from_qflat(chinfo, [i % 2 for i in range(dim)])
+                # sort by charges
+                perm_qind, leg = leg_unsorted.sort()
+                perm_flat = leg_unsorted.perm_flat_from_perm_qind(perm_qind)
+                self.perm = perm_flat
+                # permute operators accordingly
+                for opname in ops:
+                    ops[opname] = ops[opname][np.ix_(perm_flat, perm_flat)]
+                # and the states
+                states = [states[i] for i in perm_flat]
+            else:
+                leg = npc.LegCharge.from_trivial(dim)
+            self.Nmax = Nmax
+            self.conserve = conserve
+            self.filling = filling
+            Site.__init__(self, leg, states, **ops)
+            #self.state_labels['vac'] = self.state_labels['0']  # alias
+
+    def __repr__(self):
+        """Debug representation of self"""
+        return "BosonSiteParity({N:d}, {c!r}, {f:f})".format(N=self.Nmax,
+                                                       c=self.conserve,
+                                                       f=self.filling)
