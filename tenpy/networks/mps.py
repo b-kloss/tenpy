@@ -383,6 +383,7 @@ class MPS:
                 legs = [site.leg, legL, None]  # other legs are known
                 legs = npc.detect_legcharge(B, ci, legs, None, qconj=-1)
             else:
+                #print(site.leg,B.shape)
                 legs = [site.leg, parentpsi.get_B(i,'B').get_leg('vL'), parentpsi.get_B(i,'B').get_leg('vR')]
             B = npc.Array.from_ndarray(B, legs, dtype)
             B.iset_leg_labels(['p', 'vL', 'vR'])
@@ -1784,7 +1785,10 @@ class MPS:
         bc = 'finite' if self.finite else 'infinite'
         mpo_graph = mpo.MPOGraph.from_terms(ot, ct, self.sites, bc)
         mpo_ = mpo_graph.build_MPO()
-        terms_sum = mpo_.expectation_value(self, max_range=ct.max_range())
+        #print(mpo)
+        #terms_sum = mpo_.expectation_value(self, max_range=ct.max_range())
+        terms_sum = mpo_.expectation_value(self,max_range=1000)#max_range=ct.max_range())
+        
         if not self.finite:
             terms_sum = terms_sum * self.L
         return terms_sum, mpo_
