@@ -2331,7 +2331,10 @@ class MPS:
             for j in range(n - 1):
                 self.set_SR(i + j, split_th._S[j + 1])
         if not unitary:
-            self.canonical_form(renormalize)
+            if self.finite:
+                self.canonical_form(renormalize)
+            else:
+                self.canonical_form_infinite(renormalize)
 
     def swap_sites(self, i, swap_op='auto', trunc_par={}):
         """Swap the two neighboring sites `i` and `i+1` (inplace).
@@ -2782,6 +2785,7 @@ class MPS:
         if np.sign(W[np.argmax(np.abs(W))]) == -1:  # fix sign
             W = -W  # should actually never happen:  we initially normalize tr(Gr) = chi > 0
         # discard small values on order of machine precision
+        eps=0.
         proj = (W > eps)
         if np.count_nonzero(proj) < len(W):
             # project into non-degenerate subspace, reducing the bond dimensions!
@@ -2824,6 +2828,9 @@ class MPS:
         S2 /= np.sum(S2)  # equivalent to normalizing tr(rhor)=1
         s_norm = 1.
         # discard small values on order of machine precision
+        eps=0.
+        ##print('actually loading this file')
+        #sys.exit()
         proj = (S2 > eps)
         if np.count_nonzero(proj) < len(S2):
             # project into non-degenerate subspace, reducing the bond dimensions!
