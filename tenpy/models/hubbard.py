@@ -7,7 +7,7 @@ import numpy as np
 
 from .model import CouplingMPOModel, NearestNeighborModel
 from ..tools.params import get_parameter
-from ..networks.site import BosonSite, SpinHalfFermionSite
+from ..networks.site import BosonSite, SpinHalfFermionSite,SpinHalfFermionPHSSite
 
 __all__ = ['BoseHubbardModel', 'BoseHubbardChain', 'FermiHubbardModel', 'FermiHubbardChain']
 
@@ -162,7 +162,7 @@ class FermiHubbardModel(CouplingMPOModel):
     def init_sites(self, model_params):
         cons_N = get_parameter(model_params, 'cons_N', 'N', self.name)
         cons_Sz = get_parameter(model_params, 'cons_Sz', 'Sz', self.name)
-        site = SpinHalfFermionSite(cons_N=cons_N, cons_Sz=cons_Sz)
+        site = SpinHalfFermionPHSSite(cons_N=cons_N, cons_Sz=cons_Sz)
         return site
 
     def init_terms(self, model_params):
@@ -174,7 +174,7 @@ class FermiHubbardModel(CouplingMPOModel):
 
         for u in range(len(self.lat.unit_cell)):
             self.add_onsite(-mu, u, 'Ntot')
-            self.add_onsite(U, u, 'NuNd')
+            self.add_onsite(U, u, 'NuNd_phs')
         for u1, u2, dx in self.lat.nearest_neighbors:
             self.add_coupling(-t, u1, 'Cdu', u2, 'Cu', dx)
             self.add_coupling(-np.conj(t), u2, 'Cdu', u1, 'Cu', -dx)  # h.c.

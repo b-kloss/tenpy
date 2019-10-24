@@ -1048,6 +1048,198 @@ class SpinHalfFermionSite(Site):
                                                                    cS=self.cons_Sz,
                                                                    f=self.filling)
 
+class SpinHalfFermionPHSSite(Site):
+    r"""Create a :class:`Site` for spinful (spin-1/2) fermions.
+
+    Local states are:
+         ``empty``  (vacuum),
+         ``up``     (one spin-up electron),
+         ``down``   (one spin-down electron), and
+         ``full``   (both electrons)
+
+    Local operators can be built from creation operators.
+
+    .. warning ::
+        Using the Jordan-Wigner string (``JW``) in the correct way is crucial to get correct
+        results, otherwise you just describe hardcore bosons!
+
+    ==============  =============================================================================
+    operator        description
+    ==============  =============================================================================
+    ``Id``          Identity :math:`\mathbb{1}`
+    ``JW``          Sign for the Jordan-Wigner string :math:`(-1)^{n_{\uparrow}+n_{\downarrow}}`
+    ``JWu``         Partial sign for the Jordan-Wigner string :math:`(-1)^{n_{\uparrow}}`
+    ``JWd``         Partial sign for the Jordan-Wigner string :math:`(-1)^{n_{\downarrow}}`
+    ``Cu``          Annihilation operator spin-up :math:`c_{\uparrow}`
+                    (up to 'JW'-string on sites left of it).
+    ``Cdu``         Creation operator spin-up :math:`c^\dagger_{\uparrow}`
+                    (up to 'JW'-string on sites left of it).
+    ``Cd``          Annihilation operator spin-down :math:`c_{\downarrow}`
+                    (up to 'JW'-string on sites left of it).
+                    Includes ``JWu`` such that it anti-commutes onsite with ``Cu, Cdu``.
+    ``Cdd``         Creation operator spin-down :math:`c^\dagger_{\downarrow}`
+                    (up to 'JW'-string on sites left of it).
+                    Includes ``JWu`` such that it anti-commutes onsite with ``Cu, Cdu``.
+    ``Nu``          Number operator :math:`n_{\uparrow}= c^\dagger_{\uparrow} c_{\uparrow}`
+    ``Nd``          Number operator :math:`n_{\downarrow}= c^\dagger_{\downarrow} c_{\downarrow}`
+    ``NuNd``        Dotted number operators :math:`n_{\uparrow} n_{\downarrow}`
+    ``NuNdPHS``     Dotted number operators :math:`n_{\uparrow} n_{\downarrow} with particle-hole symmetric correction`
+    
+    ``Ntot``        Total number operator :math:`n_t= n_{\uparrow} + n_{\downarrow}`
+    ``dN``          Total number operator compared to the filling :math:`\Delta n = n_t-filling`
+    ``Sx, Sy, Sz``  Spin operators :math:`S^{x,y,z}`, in particular
+                    :math:`S^z = \frac{1}{2}( n_\uparrow - n_\downarrow )`
+    ``Sp, Sm``      Spin flips :math:`S^{\pm} = S^{x} \pm i S^{y}`,
+                    e.g. :math:`S^{+} = c^\dagger_\uparrow c_\downarrow`
+    ==============  =============================================================================
+
+    The spin operators are defined as :math:`S^\gamma =
+    (c^\dagger_{\uparrow}, c^\dagger_{\downarrow}) \sigma^\gamma (c_{\uparrow}, c_{\downarrow})^T`,
+    where :math:`\sigma^\gamma` are spin-1/2 matrices (i.e. half the pauli matrices).
+
+    ============= ============= ======= =======================================
+    `cons_N`      `cons_Sz`     qmod    *excluded* onsite operators
+    ============= ============= ======= =======================================
+    ``'N'``       ``'Sz'``      [1, 1]  ``Sx, Sy``
+    ``'N'``       ``'parity'``  [1, 2]  --
+    ``'N'``       ``None``      [1]     --
+    ``'parity'``  ``'Sz'``      [2, 1]  ``Sx, Sy``
+    ``'parity'``  ``'parity'``  [2, 2]  --
+    ``'parity'``  ``None``      [2]     --
+    ``None``      ``'Sz'``      [1]     ``Sx, Sy``
+    ``None``      ``'parity'``  [2]     --
+    ``None``      ``None``      []      --
+    ============= ============= ======= =======================================
+
+    .. todo ::
+        Check if Jordan-Wigner strings for 4x4 operators are correct.
+
+    Parameters
+    ----------
+    cons_N : ``'N' | 'parity' | None``
+        Whether particle number is conserved, c.f. table above.
+    cons_Sz : ``'Sz' | 'parity' | None``
+        Whether spin is conserved, c.f. table above.
+    filling : float
+        Average filling. Used to define ``dN``.
+
+    Attributes
+    ----------
+    cons_N : ``'N' | 'parity' | None``
+        Whether particle number is conserved, c.f. table above.
+    cons_Sz : ``'Sz' | 'parity' | None``
+        Whether spin is conserved, c.f. table above.
+    filling : float
+        Average filling. Used to define ``dN``.
+    """
+
+    def __init__(self, cons_N='N', cons_Sz='Sz', filling=1.):
+        if cons_N not in ['N', 'parity', None]:
+            raise ValueError("invalid `cons_N`: " + repr(cons_N))
+        if cons_Sz not in ['Sz', 'parity', None]:
+            raise ValueError("invalid `cons_Sz`: " + repr(cons_Sz))
+        d = 4
+        states = ['empty', 'up', 'down', 'full']
+        # 0) Build the operators.
+        Nu_diag = np.array([0., 1., 0., 1.], dtype=np.float)
+        Nu_diag_phs = np.array([-0.5,0.5,-0.5,0.5], dtype=np.float)
+        Nd_diag = np.array([0., 0., 1., 1.], dtype=np.float)
+        Nd_diag_phs = np.array([-0.5, -0.5, +0.5, +0.5], dtype=np.float)
+        
+        Nu = np.diag(Nu_diag)
+        Nd = np.diag(Nd_diag)
+        Nu_phs = np.diag(Nu_diag_phs)
+        Nd_phs = np.diag(Nd_diag_phs)
+        Ntot = np.diag(Nu_diag + Nd_diag)
+        dN = np.diag(Nu_diag + Nd_diag - filling)
+        NuNd = np.diag(Nu_diag * Nd_diag)
+        NuNd_phs = np.diag(Nu_diag_phs * Nd_diag_phs)
+        #print(NuNd_phs,np.dot(Nu_diag_phs,Nd_diag_phs))
+        #assert np.allclose(NuNd_phs,np.dot(Nu_phs,Nd_phs))
+        
+        JWu = np.diag(1. - 2 * Nu_diag)  # (-1)^Nu
+        JWd = np.diag(1. - 2 * Nd_diag)  # (-1)^Nd
+        JW = JWu * JWd  # (-1)^{Nu+Nd}
+
+        Cu = np.zeros((d, d))
+        Cu[0, 1] = Cu[2, 3] = 1
+        Cdu = np.transpose(Cu)
+        # For spin-down annihilation operator: include a Jordan-Wigner string JWu
+        # this ensures that Cdu.Cd = - Cd.Cdu
+        # c.f. the chapter on the Jordan-Wigner trafo in the userguide
+        Cd_noJW = np.zeros((d, d))
+        Cd_noJW[0, 2] = Cd_noJW[1, 3] = 1
+        Cd = np.dot(JWu, Cd_noJW)  # (don't do this for spin-up...)
+        Cdd = np.transpose(Cd)
+
+        # spin operators are defined as  (Cdu, Cdd) S^gamma (Cu, Cd)^T,
+        # where S^gamma is the 2x2 matrix for spin-half
+        Sz = np.diag(0.5 * (Nu_diag - Nd_diag))
+        Sp = np.dot(Cdu, Cd)
+        Sm = np.dot(Cdd, Cu)
+        Sx = 0.5 * (Sp + Sm)
+        Sy = -0.5j * (Sp - Sm)
+
+        ops = dict(JW=JW, JWu=JWu, JWd=JWd,
+                   Cu=Cu, Cdu=Cdu, Cd=Cd, Cdd=Cdd,
+                   Nu=Nu, Nu_phs=Nu_phs, Nd=Nd, Nd_phs=Nd_phs, Ntot=Ntot, NuNd=NuNd,NuNd_phs=NuNd_phs, dN=dN,
+                   Sx=Sx, Sy=Sy, Sz=Sz, Sp=Sp, Sm=Sm)  # yapf: disable
+
+        # handle charges
+        qmod = []
+        qnames = []
+        charges = []
+        if cons_N == 'N':
+            qnames.append('N')
+            qmod.append(1)
+            charges.append([0, 1, 1, 2])
+        elif cons_N == 'parity':
+            qnames.append('N')
+            qmod.append(2)
+            charges.append([0, 1, 1, 0])
+        if cons_Sz == 'Sz':
+            qnames.append('Sz')
+            qmod.append(1)
+            charges.append([0, 1, -1, 0])
+            del ops['Sx']
+            del ops['Sy']
+        elif cons_Sz == 'parity':
+            qnames.append('Sz')
+            qmod.append(4)  # difference between up and down is 2!
+            charges.append([0, 1, 3, 0])  # == [0, 1, -1, 0] mod 4
+            # chosen s.t. Cu, Cd have well-defined charges!
+
+        if len(qmod) == 0:
+            leg = npc.LegCharge.from_trivial(d)
+        else:
+            if len(qmod) == 1:
+                charges = charges[0]
+            else:  # len(charges) == 2: need to transpose
+                charges = [[q1, q2] for q1, q2 in zip(charges[0], charges[1])]
+            chinfo = npc.ChargeInfo(qmod, qnames)
+            leg_unsorted = npc.LegCharge.from_qflat(chinfo, charges)
+            # sort by charges
+            perm_qind, leg = leg_unsorted.sort()
+            perm_flat = leg_unsorted.perm_flat_from_perm_qind(perm_qind)
+            self.perm = perm_flat
+            # permute operators accordingly
+            for opname in ops:
+                ops[opname] = ops[opname][np.ix_(perm_flat, perm_flat)]
+            # and the states
+            states = [states[i] for i in perm_flat]
+        self.cons_N = cons_N
+        self.cons_Sz = cons_Sz
+        self.filling = filling
+        Site.__init__(self, leg, states, **ops)
+        # specify fermionic operators
+        self.need_JW_string |= set(['Cu', 'Cdu', 'Cd', 'Cdd', 'JWu', 'JWd', 'JW'])
+
+    def __repr__(self):
+        """Debug representation of self"""
+        return "SpinHalfFermionPHSSite({cN!r}, {cS!r}, {f:f})".format(cN=self.cons_N,
+                                                                   cS=self.cons_Sz,
+                                                                   f=self.filling)
+
 
 class BosonSite(Site):
     r"""Create a :class:`Site` for up to `Nmax` bosons.
