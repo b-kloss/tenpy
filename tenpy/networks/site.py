@@ -1153,7 +1153,8 @@ class SpinHalfFermionPHSSite(Site):
         Ntot = np.diag(Nu_diag + Nd_diag)
         dN = np.diag(Nu_diag + Nd_diag - filling)
         NuNd = np.diag(Nu_diag * Nd_diag)
-        NuNd_phs = np.diag(Nu_diag_phs * Nd_diag_phs)
+        #NuNd_phs = np.diag(Nu_diag_phs * Nd_diag_phs)
+        NuNd_phs=np.dot(Nu_phs,Nd_phs)
         #print(NuNd_phs,np.dot(Nu_diag_phs,Nd_diag_phs))
         #assert np.allclose(NuNd_phs,np.dot(Nu_phs,Nd_phs))
         
@@ -1395,11 +1396,15 @@ class BosonSiteParity(Site):
             
             Ndiag = np.arange(dim*2, dtype=np.float)[::2]
             N = np.diag(Ndiag)
+            fakeX=(B+Bd)[1::2,::2]
+            
+            fakeP=-1j * (bos.B - bos.Bd)[1::2,::2]
+            
             NN = np.diag(Ndiag**2)
             dN = np.diag(Ndiag - filling)   ###FIXME filling here doesn't make a whole lot of sense
             dNdN = np.diag((Ndiag - filling)**2)
             P = np.diag(1. - 2. * np.mod(Ndiag, 2))
-            ops = dict(Bsquared=Bsquared[::2,::2], Bdsquared=Bdsquared[::2,::2], N=N, NN=NN, dN=dN, dNdN=dNdN, P=P)
+            ops = dict(Bsquared=Bsquared[::2,::2], Bdsquared=Bdsquared[::2,::2], N=N, NN=NN, dN=dN, dNdN=dNdN, P=P,fakeX=fakeX,fakeP=fakeP)
             if conserve == 'N':
                 chinfo = npc.ChargeInfo([1], ['N'])
                 leg = npc.LegCharge.from_qflat(chinfo, 2*range(dim))
@@ -1435,7 +1440,11 @@ class BosonSiteParity(Site):
             dN = np.diag(Ndiag - filling)   ###FIXME filling here doesn't make a whole lot of sense
             dNdN = np.diag((Ndiag - filling)**2)
             P = np.diag(1. - 2. * np.mod(Ndiag, 2))
-            ops = dict(Bsquared=Bsquared[1::2,1::2], Bdsquared=Bdsquared[1::2,1::2], N=N, NN=NN, dN=dN, dNdN=dNdN, P=P)
+            fakeX=(B+Bd)[::2,1::2]
+            
+            fakeP=-1j * (bos.B - bos.Bd)[::2,1::2]
+            
+            ops = dict(Bsquared=Bsquared[1::2,1::2], Bdsquared=Bdsquared[1::2,1::2], N=N, NN=NN, dN=dN, dNdN=dNdN, P=P,fakeX=fakeX,fakeP=fakeP)
             if conserve == 'N':
                 chinfo = npc.ChargeInfo([1], ['N'])
                 leg = npc.LegCharge.from_qflat(chinfo, 2*range(dim)+1)
