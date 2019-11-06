@@ -103,7 +103,7 @@ class BoseHubbardChain(BoseHubbardModel, NearestNeighborModel):
 
 class FermiHubbardModel(CouplingMPOModel):
     r"""Spin-1/2 Fermi-Hubbard model.
-
+    ###IMPORTANT: MODIFIED TO BE PARTICLE HOLE SYMMETRIC
     The Hamiltonian reads:
 
     .. math ::

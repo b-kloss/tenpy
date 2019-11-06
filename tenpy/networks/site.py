@@ -1398,7 +1398,7 @@ class BosonSiteParity(Site):
             N = np.diag(Ndiag)
             fakeX=(B+Bd)[1::2,::2]
             
-            fakeP=-1j * (bos.B - bos.Bd)[1::2,::2]
+            fakeP=-1j * (B -Bd)[1::2,::2]
             
             NN = np.diag(Ndiag**2)
             dN = np.diag(Ndiag - filling)   ###FIXME filling here doesn't make a whole lot of sense
@@ -1442,7 +1442,7 @@ class BosonSiteParity(Site):
             P = np.diag(1. - 2. * np.mod(Ndiag, 2))
             fakeX=(B+Bd)[::2,1::2]
             
-            fakeP=-1j * (bos.B - bos.Bd)[::2,1::2]
+            fakeP=-1j * (B - Bd)[::2,1::2]
             
             ops = dict(Bsquared=Bsquared[1::2,1::2], Bdsquared=Bdsquared[1::2,1::2], N=N, NN=NN, dN=dN, dNdN=dNdN, P=P,fakeX=fakeX,fakeP=fakeP)
             if conserve == 'N':
